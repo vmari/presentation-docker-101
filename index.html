@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8">
+
+  <title>docker - ubykuo</title>
+
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+  <link rel="stylesheet" href="css/reveal.css">
+  <link rel="stylesheet" href="lib/css/zenburn.css">
+  <link rel="stylesheet" href="css/theme/ubykuo.css">
+</head>
+
+<body>
+<div class="reveal">
+  <div class="slides">
+    <section>
+      <img src="img/logo.png" class="plain" width="300"/>
+      <pre class="terminal" style="width:50%;"><code class="shell">$ docker run -it ubykuo /bin/sh</code></pre>
+      <p>
+        <small>Tal vez nos recuerden por charlas como <i>testing 4 noobs</i>, y <i>Cómo sobreviví al cliente visitante</i></small>
+      </p>
+    </section>
+
+    <section>
+      <h2>¿Por qué docker?</h2>
+      <ul>
+        <li>En mi máquina funciona</li>
+        <li>VM vs Container - Kernel compartido</li>
+        <li>Size - Performance</li>
+      </ul>
+
+      <aside class="notes">
+        PivpCKEiQOQ
+        https://koukia.ca/why-docker-pros-and-cons-949d104478c5
+      </aside>
+    </section>
+
+    <section>
+      <section>
+        <h2>docker</h2>
+        <p>Servicio de gestión de containers a nivel SO</p>
+        <p>No es VM</p>
+      </section>
+      <section>
+        <h2>glosario</h2>
+        <p>container</p>
+        <p>image</p>
+        <p>Dockerfile</p>
+        <aside class="notes">
+          <a href="https://docs.docker.com/glossary/">https://docs.docker.com/glossary/</a>
+
+          container :
+          A Docker image
+          An execution environment
+          A standard set of instructions
+
+          image:
+          no tiene estado, es un conjunto de cambios en un filesystem uno arriba del otro
+
+          Dockerfile
+          A Dockerfile is a text document that contains all the commands you would normally execute manually in order to build a Docker image. Docker can build images automatically by reading the instructions from a Dockerfile.
+        </aside>
+      </section>
+      <section>
+        <pre><code class="docker">FROM ubuntu
+
+RUN apt-get install -y software-properties-common python
+RUN add-apt-repository ppa:chris-lea/node.js
+RUN echo "deb http://us.archive.ubuntu.com/ubuntu/ precise universe" >> /etc/apt/sources.list
+RUN apt-get update
+RUN apt-get install -y nodejs
+RUN mkdir /var/www
+
+ADD app.js /var/www/app.js
+
+CMD ["/usr/bin/node", "/var/www/app.js"]</code></pre>
+      </section>
+      <section>
+        <pre><code class="docker">FROM debian:jessie
+
+RUN apt-get update && apt-get install -y \
+    nginx
+
+ADD nginx.conf /etc/nginx/
+ADD symfony.conf /etc/nginx/sites-available/
+
+RUN ln -s /etc/nginx/sites-available/symfony.conf /etc/nginx/sites-enabled/symfony
+RUN rm /etc/nginx/sites-enabled/default
+
+RUN usermod -u 1000 www-data
+
+CMD ["nginx"]
+
+EXPOSE 80
+EXPOSE 443</code></pre>
+      </section>
+      <section>
+        <pre class="terminal">
+$ docker run -it ubuntu /bin/bash
+$ docker run -it nginx -p 13316:80
+$ docker run -it mariadb -p 1234:3306</pre>
+      </section>
+      <section>
+        <h2>Conectando las cosas</h2>
+        <pre class="terminal">$ docker run -e MYSQL_ROOT_PASSWORD=cata --name mariadb -d mariadb
+$ docker run -e PMA_USER=root \
+          -e PMA_PASSWORD=cata \
+          -p 8181:80 \
+          --name phpmyadmin \
+          --link mariadb:db -d phpmyadmin/phpmyadmin
+$ docker ps</pre>
+        <p><a href="http://localhost:8181">http://localhost:8181</a></p>
+      </section>
+    </section>
+
+    <section>
+      <section>
+        <h2>docker-compose</h2>
+        <p>Herramienta para <b>definir</b> y levantar aplicaciones complejas con docker</p>
+        <aside class="notes">
+          Compose is a tool for defining and running complex applications with Docker. With compose, you define a multi-container application in a single file, then spin your application up in a single command which does everything that needs to be done to get it running.
+        </aside>
+      </section>
+      <section>
+        <p>La definición de los servicios se realiza con <code>docker-compose.yml</code></p>
+      </section>
+
+      <section>
+        <pre><code class="yaml">version: '3'
+
+services:
+   mariadb:
+     image: mariadb
+     volumes:
+       - db_data:/var/lib/mysql
+     environment:
+       MYSQL_ROOT_PASSWORD: cata
+       MYSQL_DATABASE: cata
+       MYSQL_USER: cata
+       MYSQL_PASSWORD: cata
+
+   phpmyadmin:
+     image: phpmyadmin/phpmyadmin
+     links:
+       - mariadb:db
+     ports:
+       - 8181:80
+     environment:
+       PMA_USER: root
+       PMA_PASSWORD: cata
+
+volumes:
+    db_data:</code></pre>
+      </section>
+
+      <section>
+        <p>Agregamos un servicio</p>
+        <pre><code class="yaml">services:
+   wordpress:
+     image: wordpress
+     ports:
+       - "8000:80"
+     environment:
+       WORDPRESS_DB_HOST: mariadb:3306
+       WORDPRESS_DB_USER: cata
+       WORDPRESS_DB_PASSWORD: cata</code></pre>
+      </section>
+      <section>
+        <p>.env configuration</p>
+        <pre><code class="yaml"># ./docker-compose.yml
+   wordpress:
+     depends_on:
+       - mariadb
+     image: wordpress
+     ports:
+       - "${WP_PORT}:80"
+     environment:
+       WORDPRESS_DB_HOST: mariadb:3306
+       WORDPRESS_DB_USER: cata
+       WORDPRESS_DB_PASSWORD: cata</code></pre>
+        <pre><code class="env"># ./.env
+WP_PORT=8181</code></pre>
+      </section>
+      <section>
+        <pre class="terminal">
+$ docker-compose build
+$ docker-compose up
+$ docker-compose down
+$ docker-compose run &lt;service&gt;
+$ docker-compose exec &lt;service&gt; &lt;command&gt;
+</pre>
+      </section>
+    </section>
+
+    <section>
+      <h2>docker service</h2>
+      <pre class="terminal"><code class="shell" data-trim contenteditable style="font-size: 18px;">$ docker ps
+$ docker stats</code></pre>
+    </section>
+
+    <section data-background-video="img/nube.mp4" data-background-video-loop="loop">
+      <h2>docker en cloud</h2>
+      <p>scaling</p>
+      <p>dockerhub</p>
+    </section>
+
+    <section data-background-image="img/bgchain.png">
+      <p>Todo bien, pero... le falta blockshain</p>
+      <aside class="notes">
+        <a href="https://medium.com/@mikesmolenski/getting-started-with-ethereum-4a3841276b6e">eth</a>
+        <a href="https://capgemini.github.io/blockchain/ethereum-docker-compose/">eth2</a>
+        docker exec -it bootstrap geth --datadir=~/.ethereum/devchain attach
+        docker-compose scale eth=3
+      </aside>
+    </section>
+
+    <section style="text-align: left;">
+      <h1>THE END</h1>
+      <p>
+        - <a href="https://github.com/ubykuo/docker-talk">Repo de la presentación</a><br>
+        - <a href="https://github.com/">Source code &amp; documentation</a>
+      </p>
+    </section>
+
+  </div>
+
+</div>
+
+<script src="lib/js/head.min.js"></script>
+<script src="js/reveal.js"></script>
+
+<script>
+
+  Reveal.initialize({
+    width: '100%',
+    height: '100%',
+    controls: true,
+    progress: true,
+    history: true,
+    center: true,
+
+    transition: 'slide', // none/fade/slide/convex/concave/zoom
+
+    // More info https://github.com/hakimel/reveal.js#dependencies
+    dependencies: [
+      {
+        src: 'lib/js/classList.js', condition: function () {
+        return !document.body.classList;
+      }
+      },
+      {
+        src: 'plugin/markdown/marked.js', condition: function () {
+        return !!document.querySelector('[data-markdown]');
+      }
+      },
+      {
+        src: 'plugin/markdown/markdown.js', condition: function () {
+        return !!document.querySelector('[data-markdown]');
+      }
+      },
+      {
+        src: 'plugin/highlight/highlight.js', async: true, callback: function () {
+        hljs.initHighlightingOnLoad();
+      }
+      },
+      {src: 'plugin/search/search.js', async: true},
+      {src: 'plugin/zoom-js/zoom.js', async: true},
+      {src: 'plugin/notes/notes.js', async: true}
+    ]
+  });
+
+</script>
+
+</body>
+</html>
